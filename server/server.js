@@ -32,9 +32,15 @@ pool.on('error', (err) => {
 });
 
 // ── Uploads Storage ──────────────────────────────
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = process.env.VERCEL
+  ? path.join('/tmp', 'uploads')
+  : path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+  try {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  } catch (e) {
+    console.warn('Notice: uploads directory initialization:', e.message);
+  }
 }
 
 const storage = multer.diskStorage({
@@ -5452,12 +5458,16 @@ if (fs.existsSync(clientDistPath)) {
 }
 
 // ─────────────────────────────────────────────────
-// Start Server
+// Start Server / Export Handler
 // ─────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`===============================================`);
-  console.log(`🚀 Mentora Enterprise Backend Running`);
-  console.log(`📍 URL: http://localhost:${PORT}`);
-  console.log(`📁 Uploads: ${uploadsDir}`);
-  console.log(`===============================================`);
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`===============================================`);
+    console.log(`🚀 Mentora Enterprise Backend Running`);
+    console.log(`📍 URL: http://localhost:${PORT}`);
+    console.log(`📁 Uploads: ${uploadsDir}`);
+    console.log(`===============================================`);
+  });
+}
+
+module.exports = app;

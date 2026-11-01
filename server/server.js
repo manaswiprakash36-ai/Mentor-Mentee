@@ -1,8 +1,9 @@
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const fs = require('fs');
 const { Pool } = require('pg');
 const { randomUUID } = require('crypto');
@@ -15,17 +16,27 @@ const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'mentora-secure-jwt-secret-academic-2026';
 
 // ── Database Connection ──────────────────────────
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 5432),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: { rejectUnauthorized: false },
-  max: 15,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-});
+const poolConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 15,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    }
+  : {
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT || 5432),
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      ssl: { rejectUnauthorized: false },
+      max: 15,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    };
+
+const pool = new Pool(poolConfig);
 
 pool.on('error', (err) => {
   console.warn('PostgreSQL pool notice (auto-recovering):', err.message);
@@ -67,7 +78,12 @@ const upload = multer({
 });
 
 // ── Middlewares ──────────────────────────────────
-app.use(cors());
+app.use(cors({
+  origin: true, // Reflect request origin to support decoupled frontend deployments
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -5442,6 +5458,21 @@ app.get('/api/mentors', async (req, res) => {
     res.status(500).json({ error: 'Could not fetch mentors' });
   }
 });
+
+// Standalone API info route
+const apiInfoHandler = (req, res) => {
+  res.json({
+    status: 'OK',
+    service: 'Mentor-Mentee Management System Backend API',
+    version: '1.0.0',
+    documentation: 'All API routes are prefixed with /api',
+    health: '/api/health',
+  });
+};
+
+app.get('/', apiInfoHandler);
+app.get('/api', apiInfoHandler);
+app.get('/api/index', apiInfoHandler);
 
 // ─────────────────────────────────────────────────
 // Serve Frontend in Production (if client/dist exists)
